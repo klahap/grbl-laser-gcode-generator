@@ -17,19 +17,19 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
-            task: packageDmg
+            task: packageReleaseDmg
             artifact-name: grbl-laser-macos
-            artifact-path: desktopApp/build/compose/binaries/main/dmg/*.dmg
+            artifact-path: desktopApp/build/compose/binaries/main-release/dmg/*.dmg
           - name: Windows
             os: windows-latest
-            task: packageMsi
+            task: packageReleaseMsi
             artifact-name: grbl-laser-windows
-            artifact-path: desktopApp/build/compose/binaries/main/msi/*.msi
+            artifact-path: desktopApp/build/compose/binaries/main-release/msi/*.msi
           - name: Linux
             os: ubuntu-latest
-            task: packageDeb
+            task: packageReleaseDeb
             artifact-name: grbl-laser-linux
-            artifact-path: desktopApp/build/compose/binaries/main/deb/*.deb
+            artifact-path: desktopApp/build/compose/binaries/main-release/deb/*.deb
 
     runs-on: ${{ matrix.os }}
 
@@ -41,7 +41,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
           cache: gradle
 
       - name: Set up Gradle
