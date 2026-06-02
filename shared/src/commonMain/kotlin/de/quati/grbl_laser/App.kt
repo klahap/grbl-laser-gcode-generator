@@ -10,18 +10,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle as ComposeFontStyle
 import java.awt.FileDialog
 import java.awt.Frame
 import androidx.compose.runtime.*
@@ -29,6 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.AwtWindow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -44,6 +41,7 @@ data class AppUiState(
     val laserSpeed: String = "400",
     val inputData: String = "",
     val fontName: String? = getDefaultFont() ?: getFonts().firstOrNull(),
+    val fontStyles: Set<FontStyle> = emptySet(),
     val hAlign: Align = Align.CENTER,
     val vAlign: Align = Align.CENTER,
     val successMessage: String? = null,
@@ -57,6 +55,7 @@ data class AppUiState(
         GenerateGCodeData(
             fontName = fontName ?: return@run null,
             fontSize = fontSizeValue ?: return@run null,
+            fontStyles = fontStyles,
             inputData = inputDataValue ?: return@run null,
             laserPower = laserPowerValue ?: return@run null,
             laserSpeed = laserSpeedValue ?: return@run null,
@@ -107,6 +106,7 @@ sealed interface AppIntent {
     data class LaserSpeedChanged(val value: String) : AppIntent
     data class InputDataChanged(val value: String) : AppIntent
     data class FontNameChanged(val value: String?) : AppIntent
+    data class FontStyleToggled(val value: FontStyle) : AppIntent
     data class HAlignChanged(val value: Align) : AppIntent
     data class VAlignChanged(val value: Align) : AppIntent
     data class GenerateClicked(val outputDir: File) : AppIntent
@@ -124,6 +124,15 @@ class AppViewModel : ViewModel() {
             is AppIntent.LaserSpeedChanged -> uiState.copy(laserSpeed = intent.value)
             is AppIntent.InputDataChanged -> uiState.copy(inputData = intent.value)
             is AppIntent.FontNameChanged -> uiState.copy(fontName = intent.value)
+            is AppIntent.FontStyleToggled -> {
+                val newStyles = if (intent.value in uiState.fontStyles) {
+                    uiState.fontStyles - intent.value
+                } else {
+                    uiState.fontStyles + intent.value
+                }
+                uiState.copy(fontStyles = newStyles)
+            }
+
             is AppIntent.HAlignChanged -> uiState.copy(hAlign = intent.value)
             is AppIntent.VAlignChanged -> uiState.copy(vAlign = intent.value)
             AppIntent.SuccessMessageDismissed -> uiState.copy(successMessage = null)
@@ -174,7 +183,10 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedTextField(
                     value = uiState.fontSize,
                     onValueChange = { appViewModel.onIntent(AppIntent.FontSizeChanged(it)) },
@@ -188,6 +200,46 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
+                Spacer(Modifier.padding(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxHeight().padding(top = 8.dp, bottom = 22.dp)
+                ) {
+                    for ((index, style) in FontStyle.entries.withIndex()) {
+                        val shape = when {
+                            FontStyle.entries.size == 1 -> MaterialTheme.shapes.small
+                            index == 0 -> MaterialTheme.shapes.small.copy(
+                                topEnd = CornerSize(0.dp),
+                                bottomEnd = CornerSize(0.dp)
+                            )
+
+                            index == FontStyle.entries.size - 1 -> MaterialTheme.shapes.small.copy(
+                                topStart = CornerSize(0.dp),
+                                bottomStart = CornerSize(0.dp)
+                            )
+
+                            else -> RectangleShape
+                        }
+                        FilterChip(
+                            selected = style in uiState.fontStyles,
+                            onClick = { appViewModel.onIntent(AppIntent.FontStyleToggled(style)) },
+                            shape = shape,
+                            label = {
+                                Text(
+                                    text = when (style) {
+                                        FontStyle.BOLD -> "B"
+                                        FontStyle.ITALIC -> "I"
+                                    },
+                                    style = when (style) {
+                                        FontStyle.BOLD -> MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                                        FontStyle.ITALIC -> MaterialTheme.typography.bodyLarge.copy(fontStyle = ComposeFontStyle.Italic)
+                                    },
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
+                            },
+                            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
+                        )
+                    }
+                }
                 Spacer(Modifier.padding(4.dp))
                 FontSelectField(
                     label = "Font",
@@ -289,7 +341,7 @@ private fun FontSelectField(
     value: String?,
     onValueChange: (String) -> Unit,
     fonts: List<String>,
-    colors: androidx.compose.material3.TextFieldColors,
+    colors: TextFieldColors,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -332,13 +384,14 @@ private fun FontSelectField(
     }
 }
 
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun AlignSelectField(
     label: String,
     value: Align,
     onValueChange: (Align) -> Unit,
-    colors: androidx.compose.material3.TextFieldColors,
+    colors: TextFieldColors,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
