@@ -43,7 +43,7 @@ data class AppUiState(
     val laserPower: String = "400",
     val laserSpeed: String = "400",
     val inputData: String = "",
-    val fontName: String? = getFonts().firstOrNull(),
+    val fontName: String? = getDefaultFont() ?: getFonts().firstOrNull(),
     val hAlign: Align = Align.CENTER,
     val vAlign: Align = Align.CENTER,
     val successMessage: String? = null,

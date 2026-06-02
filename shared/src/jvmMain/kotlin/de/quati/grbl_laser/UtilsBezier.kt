@@ -13,10 +13,6 @@ sealed interface PathSegment {
 
     val p1: Point2D.Double
 
-    object EndOfPath : PathSegment, Linear {
-        override val p1 get() = error("EndOfPath segment does not have a point")
-    }
-
     data class MoveTo(override val p1: Point2D.Double) : PathSegment, Linear
     data class LineTo(override val p1: Point2D.Double) : PathSegment, Linear
     data class QuadTo(val ctrl: Point2D.Double, override val p1: Point2D.Double) : PathSegment, Curve {
@@ -87,7 +83,6 @@ fun Sequence<PathSegment>.toLines(tolerance: Double): Sequence<PathSegment.Linea
             is PathSegment.LineTo -> yield(current)
             is PathSegment.QuadTo -> yieldAll(current.toLines(p0 = (prev ?: current).p1, tolerance = tolerance))
             is PathSegment.CubicTo -> yieldAll(current.toLines(p0 = (prev ?: current).p1, tolerance = tolerance))
-            PathSegment.EndOfPath -> yield(PathSegment.EndOfPath)
         }
         prev = current
     }

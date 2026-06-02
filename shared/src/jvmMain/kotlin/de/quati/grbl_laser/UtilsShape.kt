@@ -41,13 +41,19 @@ fun Shape.asSegmentSequence() = sequence {
     fun p0() = Point2D.Double(c[0], c[1])
     fun p1() = Point2D.Double(c[2], c[3])
     fun p2() = Point2D.Double(c[4], c[5])
+    var latestMoveTo: Point2D.Double? = null
+
     while (!pi.isDone) {
         when (pi.currentSegment(c)) {
-            PathIterator.SEG_MOVETO -> PathSegment.MoveTo(p0())
+            PathIterator.SEG_MOVETO -> {
+                latestMoveTo = p0()
+                PathSegment.MoveTo(p0())
+            }
+
             PathIterator.SEG_LINETO -> PathSegment.LineTo(p0())
             PathIterator.SEG_QUADTO -> PathSegment.QuadTo(p0(), p1())
             PathIterator.SEG_CUBICTO -> PathSegment.CubicTo(p0(), p1(), p2())
-            PathIterator.SEG_CLOSE -> PathSegment.EndOfPath
+            PathIterator.SEG_CLOSE -> PathSegment.LineTo(latestMoveTo ?: error("cannot close path, no starting point"))
             else -> null
         }?.let { yield(it) }
         pi.next()

@@ -17,7 +17,6 @@ fun Shape.toGcode(
     appendLine("M5")
     asSegmentSequence().toLines(tolerance = tolerance).forEach {
         when (it) {
-            PathSegment.EndOfPath -> null
             is PathSegment.MoveTo -> {
                 isStart = true
                 "G0X${ff}Y${ff}".format(it.p1.x, -it.p1.y)
@@ -30,7 +29,7 @@ fun Shape.toGcode(
                 } else ""
                 "G1X${ff}Y${ff}$postfix".format(it.p1.x, -it.p1.y)
             }
-        }?.let(::appendLine)
+        }.let(::appendLine)
     }
     appendLine("M5")
 }.let(::GCode)
