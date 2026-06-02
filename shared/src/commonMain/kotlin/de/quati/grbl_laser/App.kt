@@ -1,8 +1,6 @@
 package de.quati.grbl_laser
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,19 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.AwtWindow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
-import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.name
-import kotlin.io.path.walk
 import kotlin.io.path.writeText
 
 data class AppUiState(
@@ -51,9 +43,7 @@ data class AppUiState(
     val laserPower: String = "400",
     val laserSpeed: String = "400",
     val inputData: String = "",
-    val fontFile: File? = Path("./").walk()
-        .firstOrNull { it.isRegularFile() && it.name.endsWith(".ttf") }
-        ?.toFile(),
+    val fontName: String? = getFonts().firstOrNull(),
     val hAlign: Align = Align.CENTER,
     val vAlign: Align = Align.CENTER,
     val successMessage: String? = null,
@@ -65,7 +55,7 @@ data class AppUiState(
         .takeIf { it.isNotEmpty() }
     val generateGCodeData: GenerateGCodeData? = run {
         GenerateGCodeData(
-            fontFile = fontFile ?: return@run null,
+            fontName = fontName ?: return@run null,
             fontSize = fontSizeValue ?: return@run null,
             inputData = inputDataValue ?: return@run null,
             laserPower = laserPowerValue ?: return@run null,
@@ -116,7 +106,7 @@ sealed interface AppIntent {
     data class LaserPowerChanged(val value: String) : AppIntent
     data class LaserSpeedChanged(val value: String) : AppIntent
     data class InputDataChanged(val value: String) : AppIntent
-    data class FontFileChanged(val value: File?) : AppIntent
+    data class FontNameChanged(val value: String?) : AppIntent
     data class HAlignChanged(val value: Align) : AppIntent
     data class VAlignChanged(val value: Align) : AppIntent
     data class GenerateClicked(val outputDir: File) : AppIntent
@@ -133,7 +123,7 @@ class AppViewModel : ViewModel() {
             is AppIntent.LaserPowerChanged -> uiState.copy(laserPower = intent.value)
             is AppIntent.LaserSpeedChanged -> uiState.copy(laserSpeed = intent.value)
             is AppIntent.InputDataChanged -> uiState.copy(inputData = intent.value)
-            is AppIntent.FontFileChanged -> uiState.copy(fontFile = intent.value)
+            is AppIntent.FontNameChanged -> uiState.copy(fontName = intent.value)
             is AppIntent.HAlignChanged -> uiState.copy(hAlign = intent.value)
             is AppIntent.VAlignChanged -> uiState.copy(vAlign = intent.value)
             AppIntent.SuccessMessageDismissed -> uiState.copy(successMessage = null)
@@ -199,41 +189,14 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.padding(4.dp))
-                val fontFilePath = uiState.fontFile?.absolutePath ?: ""
-                var isFileDialogVisible by remember { mutableStateOf(false) }
-                val fontFileInteractionSource = remember { MutableInteractionSource() }
-                LaunchedEffect(fontFileInteractionSource) {
-                    fontFileInteractionSource.interactions.collect { interaction ->
-                        if (interaction is PressInteraction.Release) {
-                            isFileDialogVisible = true
-                        }
-                    }
-                }
-                OutlinedTextField(
-                    value = TextFieldValue(
-                        text = fontFilePath,
-                        selection = TextRange(fontFilePath.length),
-                    ),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Font File") },
-                    supportingText = {
-                        if (uiState.fontFile == null) Text("Select a TTF font file")
-                    },
-                    isError = uiState.fontFile == null,
-                    singleLine = true,
+                FontSelectField(
+                    label = "Font",
+                    value = uiState.fontName,
+                    onValueChange = { appViewModel.onIntent(AppIntent.FontNameChanged(it)) },
+                    fonts = remember { getFonts() },
                     colors = textFieldColors,
-                    interactionSource = fontFileInteractionSource,
                     modifier = Modifier.weight(1f),
                 )
-                if (isFileDialogVisible) {
-                    FileDialog(
-                        onCloseRequest = {
-                            isFileDialogVisible = false
-                            if (it != null) appViewModel.onIntent(AppIntent.FontFileChanged(File(it)))
-                        }
-                    )
-                }
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -321,6 +284,56 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
+private fun FontSelectField(
+    label: String,
+    value: String?,
+    onValueChange: (String) -> Unit,
+    fonts: List<String>,
+    colors: androidx.compose.material3.TextFieldColors,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = value ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            supportingText = {
+                if (value == null) Text("Select a font")
+            },
+            isError = value == null,
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = colors,
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            fonts.forEach { font ->
+                DropdownMenuItem(
+                    text = { Text(font) },
+                    onClick = {
+                        onValueChange(font)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun AlignSelectField(
     label: String,
     value: Align,
@@ -362,29 +375,6 @@ private fun AlignSelectField(
         }
     }
 }
-
-@Composable
-private fun FileDialog(
-    onCloseRequest: (result: String?) -> Unit
-) = AwtWindow(
-    visible = true,
-    create = {
-        object : FileDialog(null as Frame?, "Select Font", LOAD) {
-            override fun setVisible(value: Boolean) {
-                super.setVisible(value)
-                if (value) {
-                    if (directory != null && file != null) {
-                        onCloseRequest(File(directory, file).absolutePath)
-                    } else {
-                        onCloseRequest(null)
-                    }
-                }
-            }
-        }
-    },
-    update = {},
-    dispose = FileDialog::dispose
-)
 
 @Composable
 private fun DirectoryDialog(
