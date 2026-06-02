@@ -1,0 +1,63 @@
+name: Release desktop app
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }} package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            task: packageDmg
+            artifact-name: grbl-laser-macos
+            artifact-path: desktopApp/build/compose/binaries/main/dmg/*.dmg
+          - name: Windows
+            os: windows-latest
+            task: packageMsi
+            artifact-name: grbl-laser-windows
+            artifact-path: desktopApp/build/compose/binaries/main/msi/*.msi
+          - name: Linux
+            os: ubuntu-latest
+            task: packageDeb
+            artifact-name: grbl-laser-linux
+            artifact-path: desktopApp/build/compose/binaries/main/deb/*.deb
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build package
+        run: ./gradlew :desktopApp:${{ matrix.task }} --stacktrace
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-path }}
+          if-no-files-found: error
+
+      - name: Attach package to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact-path }}
