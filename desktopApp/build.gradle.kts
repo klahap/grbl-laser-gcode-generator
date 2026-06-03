@@ -15,6 +15,15 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
 }
 
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-Xcontext-parameters",
+            "-Xexplicit-backing-fields",
+        )
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "de.quati.grbl_laser.MainKt"

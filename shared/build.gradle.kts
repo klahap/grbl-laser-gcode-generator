@@ -19,13 +19,21 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(compose.materialIconsExtended)
+            implementation(libs.lets.plot.compose)
+            implementation(libs.lets.plot.kotlin)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        jvmMain.dependencies {
+            implementation(libs.slf4j.api)
+        }
         all {
             compilerOptions {
-                freeCompilerArgs.add("-Xcontext-parameters")
+                freeCompilerArgs.addAll(
+                    "-Xcontext-parameters",
+                    "-Xexplicit-backing-fields",
+                )
             }
         }
     }
