@@ -1,28 +1,23 @@
 package de.quati.grbl_laser
 
-import java.awt.Shape
 import kotlin.math.ceil
 import kotlin.math.log10
 import kotlin.math.roundToInt
+import kotlin.text.format
 
-
-fun Shape.toGcode(
-    tolerance: Double,
-    power: UInt,
-    speed: UInt,
-) = buildString {
+fun ShapeLinear.toGcode(tolerance: Double, power: UInt, speed: UInt) = buildString {
     val digits = ceil(-log10(tolerance)).roundToInt().coerceAtLeast(0)
     val ff = "%.${digits}f"
     var isStart = true
-    asSegmentSequence().toLines(tolerance = tolerance).forEach {
+    segmentIterator().forEach {
         when (it) {
-            is PathSegment.MoveTo -> {
+            is PathSegmentLinear.MoveTo -> {
                 isStart = true
                 appendLine("M5")
                 appendLine("G0X${ff}Y${ff}".format(it.p1.x, -it.p1.y))
             }
 
-            is PathSegment.LineTo -> {
+            is PathSegmentLinear.LineTo -> {
                 val postfix = if (isStart) {
                     isStart = false
                     appendLine("M3S$power")

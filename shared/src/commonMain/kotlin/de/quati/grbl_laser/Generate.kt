@@ -17,7 +17,14 @@ data class GeneratorSettings(
 )
 
 interface Generator {
-    fun generateGCode(data: String): GCode
+    val settings: GeneratorSettings
+    val tolerance get() = settings.fontSize.toDouble() / 96
+    fun generateShape(data: String): ShapeLinear
+    fun generateGCode(data: String): GCode = generateShape(data).toGcode(
+        tolerance = tolerance,
+        power = settings.laserPower,
+        speed = settings.laserSpeed,
+    )
 }
 
 expect fun GeneratorSettings.toGenerator(): Generator
