@@ -36,3 +36,14 @@ kotlin {
         }
     }
 }
+
+compose.desktop {
+    application {
+        nativeDistributions {
+            windows {
+                shortcut = true
+                perUserInstall = true
+            }
+        }
+    }
+}
