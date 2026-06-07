@@ -16,20 +16,19 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle as ComposeFontStyle
-import java.awt.FileDialog // TODO
-import java.awt.Frame // TODO
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.AwtWindow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.io.File // TODO
 
 
 @Composable
@@ -41,17 +40,39 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
     MaterialTheme(colorScheme = AppColorScheme) {
         val textFieldColors = appTextFieldColors()
 
-        uiState.successMessage?.let { message ->
-            AlertDialog(
-                onDismissRequest = { appViewModel.onIntent(AppIntent.SuccessMessageDismissed) },
-                confirmButton = {
-                    Button(onClick = { appViewModel.onIntent(AppIntent.SuccessMessageDismissed) }) {
-                        Text("OK")
-                    }
-                },
-                title = { Text("Generation complete") },
-                text = { Text(message) },
-            )
+        when (val status = uiState.generateStatus) {
+            GenerateStatus.InProgress, GenerateStatus.NotStarted -> Unit
+            is GenerateStatus.Error ->
+                AlertDialog(
+                    icon = {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    onDismissRequest = { appViewModel.onIntent(AppIntent.GeneratorStatusMessageDismissed) },
+                    confirmButton = {
+                        Button(onClick = { appViewModel.onIntent(AppIntent.GeneratorStatusMessageDismissed) }) {
+                            Text("OK")
+                        }
+                    },
+                    title = { Text("Generation failed") },
+                    text = { Text(status.message) },
+                )
+
+            is GenerateStatus.Success ->
+                AlertDialog(
+                    icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                    onDismissRequest = { appViewModel.onIntent(AppIntent.GeneratorStatusMessageDismissed) },
+                    confirmButton = {
+                        Button(onClick = { appViewModel.onIntent(AppIntent.GeneratorStatusMessageDismissed) }) {
+                            Text("OK")
+                        }
+                    },
+                    title = { Text("Generation complete") },
+                    text = { Text(status.message) },
+                )
         }
         Row(
             modifier = Modifier
@@ -198,20 +219,11 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                         .heightIn(min = 80.dp),
                 )
                 Spacer(Modifier.height(16.dp))
-                var isOutputDirDialogVisible by remember { mutableStateOf(false) }
                 Button(
-                    onClick = { isOutputDirDialogVisible = true },
-                    enabled = uiState.canGenerate,
+                    onClick = { appViewModel.onIntent(AppIntent.GenerateClicked) },
+                    enabled = uiState.canGenerate && uiState.generateStatus is GenerateStatus.NotStarted,
                 ) {
                     Text("Generate")
-                }
-                if (isOutputDirDialogVisible) {
-                    DirectoryDialog(
-                        onCloseRequest = {
-                            isOutputDirDialogVisible = false
-                            if (it != null) appViewModel.onIntent(AppIntent.GenerateClicked(File(it)))
-                        }
-                    )
                 }
             }
 
@@ -314,28 +326,3 @@ private fun AlignSelectField(
         }
     }
 }
-
-@Composable
-private fun DirectoryDialog(
-    onCloseRequest: (result: String?) -> Unit
-) = AwtWindow(
-    visible = true,
-    create = {
-        System.setProperty("apple.awt.fileDialogForDirectories", "true")
-        object : FileDialog(null as Frame?, "Select Output Directory", SAVE) {
-            override fun setVisible(value: Boolean) {
-                super.setVisible(value)
-                if (value) {
-                    System.setProperty("apple.awt.fileDialogForDirectories", "false")
-                    if (directory != null && file != null) {
-                        onCloseRequest(File(directory, file).absolutePath)
-                    } else {
-                        onCloseRequest(null)
-                    }
-                }
-            }
-        }
-    },
-    update = {},
-    dispose = FileDialog::dispose
-)

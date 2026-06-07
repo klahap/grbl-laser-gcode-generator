@@ -6,8 +6,7 @@ enum class FontStyle { BOLD, ITALIC }
 @JvmInline
 value class GCode(val content: String)
 
-data class GenerateGCodeData(
-    val inputData: List<String>,
+data class GeneratorSettings(
     val fontName: String,
     val fontSize: Float,
     val fontStyles: Set<FontStyle>,
@@ -17,4 +16,8 @@ data class GenerateGCodeData(
     val laserSpeed: UInt,
 )
 
-expect fun generate(data: GenerateGCodeData): Sequence<Pair<String, GCode>>
+interface Generator {
+    fun generateGCode(data: String): GCode
+}
+
+expect fun GeneratorSettings.toGenerator(): Generator

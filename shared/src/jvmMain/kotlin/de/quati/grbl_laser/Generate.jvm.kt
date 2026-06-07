@@ -4,22 +4,23 @@ import java.awt.Font
 import java.awt.font.TextAttribute
 
 
-actual fun generate(data: GenerateGCodeData): Sequence<Pair<String, GCode>> {
+class GeneratorJvmImpl(
+    val settings: GeneratorSettings,
+) : Generator {
     val fontAttributes = buildMap {
-        put(TextAttribute.FAMILY, data.fontName)
-        put(TextAttribute.SIZE, data.fontSize)
-        if (FontStyle.BOLD in data.fontStyles)
+        put(TextAttribute.FAMILY, settings.fontName)
+        put(TextAttribute.SIZE, settings.fontSize)
+        if (FontStyle.BOLD in settings.fontStyles)
             put(TextAttribute.WEIGHT, TextAttribute.WEIGHT_BOLD)
-        if (FontStyle.ITALIC in data.fontStyles)
+        if (FontStyle.ITALIC in settings.fontStyles)
             put(TextAttribute.POSTURE, TextAttribute.POSTURE_OBLIQUE)
     }
-    println(data.fontStyles)
     val font = Font(fontAttributes)
-    val tolerance = data.fontSize.toDouble() / 96
-    return data.inputData.asSequence().map { t ->
-        t to font.generateShape(text = t)
-            .align(hAlign = data.hAlign, vAlign = data.vAlign)
-            .toGcode(tolerance = tolerance, power = data.laserPower, speed = data.laserSpeed)
-    }
+    val tolerance = settings.fontSize.toDouble() / 96
+
+    override fun generateGCode(data: String): GCode = font.generateShape(text = data)
+        .align(hAlign = settings.hAlign, vAlign = settings.vAlign)
+        .toGcode(tolerance = tolerance, power = settings.laserPower, speed = settings.laserSpeed)
 }
 
+actual fun GeneratorSettings.toGenerator(): Generator = GeneratorJvmImpl(settings = this)

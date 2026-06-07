@@ -7,7 +7,6 @@ plugins {
 kotlin {
     jvm()
 
-
     sourceSets {
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -18,6 +17,8 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.filekit.dialogs.compose)
             implementation(compose.materialIconsExtended)
         }
         commonTest.dependencies {
@@ -31,6 +32,7 @@ kotlin {
                 freeCompilerArgs.addAll(
                     "-Xcontext-parameters",
                     "-Xexplicit-backing-fields",
+                    "-Xexpect-actual-classes",
                 )
             }
         }

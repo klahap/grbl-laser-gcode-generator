@@ -1,54 +1,88 @@
 package de.quati.grbl_laser
 
 import androidx.lifecycle.ViewModel
+import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
+import io.github.vinceglb.filekit.dialogs.openDirectoryPicker
+import io.github.vinceglb.filekit.path
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File // TODO
+import kotlinx.coroutines.launch
+import kotlinx.io.Buffer
+import kotlinx.io.files.Path
 import kotlin.collections.plus
-import kotlin.io.path.createDirectories
-import kotlin.io.path.writeText
+import kotlinx.io.writeString
 
 
 class AppViewModel : ViewModel() {
+    val scope = CoroutineScope(Dispatchers.Default + SupervisorJob() + CoroutineName("AppViewModel"))
     val uiState: StateFlow<AppUiState>
         field = MutableStateFlow(AppUiState())
 
-    fun onIntent(intent: AppIntent) {
-        uiState.update { state ->
-            when (intent) {
-                is AppIntent.FontSizeChanged -> state.copy(fontSize = intent.value)
-                is AppIntent.LaserPowerChanged -> state.copy(laserPower = intent.value)
-                is AppIntent.LaserSpeedChanged -> state.copy(laserSpeed = intent.value)
-                is AppIntent.InputDataChanged -> state.copy(inputData = intent.value)
-                is AppIntent.FontNameChanged -> state.copy(fontName = intent.value)
-                is AppIntent.FontStyleToggled -> {
-                    val newStyles = if (intent.value in state.fontStyles) {
-                        state.fontStyles - intent.value
-                    } else {
-                        state.fontStyles + intent.value
-                    }
-                    state.copy(fontStyles = newStyles)
-                }
-
-                is AppIntent.HAlignChanged -> state.copy(hAlign = intent.value)
-                is AppIntent.VAlignChanged -> state.copy(vAlign = intent.value)
-                AppIntent.SuccessMessageDismissed -> state.copy(successMessage = null)
-                is AppIntent.GenerateClicked -> {
-                    state.generateGCodeData?.let { data ->
-                        println("Generating G-Code files...")
-                        val nofDigits = (data.inputData.size + 1).toString().length.coerceAtLeast(2)
-                        val outputDir = intent.outputDir.toPath().also { it.createDirectories() }
-                        generate(data).forEachIndexed { index, (name, gcode) ->
-                            val prefix = (index + 1).toString().padStart(nofDigits, '0')
-                            val filename = "${prefix}_${name.toPathSafe()}.nc"
-                            outputDir.resolve(filename).writeText(gcode.content)
-                        }
-                        println("Generated all files in $outputDir")
-                        state.copy(successMessage = "Generated ${data.inputData.size} G-Code file(s) in $outputDir")
-                    } ?: state
-                }
+    fun onIntent(intent: AppIntent): Unit = when (intent) {
+        is AppIntent.FontSizeChanged -> uiState.update { it.copy(fontSize = intent.value) }
+        is AppIntent.LaserPowerChanged -> uiState.update { it.copy(laserPower = intent.value) }
+        is AppIntent.LaserSpeedChanged -> uiState.update { it.copy(laserSpeed = intent.value) }
+        is AppIntent.InputDataChanged -> uiState.update { it.copy(inputData = intent.value) }
+        is AppIntent.FontNameChanged -> uiState.update { it.copy(fontName = intent.value) }
+        is AppIntent.FontStyleToggled -> uiState.update { state ->
+            val newStyles = if (intent.value in state.fontStyles) {
+                state.fontStyles - intent.value
+            } else {
+                state.fontStyles + intent.value
             }
+            state.copy(fontStyles = newStyles)
+        }
+
+        is AppIntent.HAlignChanged -> uiState.update { it.copy(hAlign = intent.value) }
+        is AppIntent.VAlignChanged -> uiState.update { it.copy(vAlign = intent.value) }
+        AppIntent.GeneratorStatusMessageDismissed -> uiState.update { it.copy(generateStatus = GenerateStatus.NotStarted) }
+        is AppIntent.GenerateClicked -> runAsync(::generate)
+    }
+
+    private fun runAsync(block: suspend () -> Unit) {
+        scope.launch { block() }
+    }
+
+    private suspend fun generate() {
+        uiState.update { it.copy(generateStatus = GenerateStatus.InProgress) }
+        val generatorSettings = uiState.value.generatorSettings
+        val inputData = uiState.value.inputDataValue
+        if (inputData == null || generatorSettings == null)
+            return uiState.update { it.copy(generateStatus = GenerateStatus.Error("Input data or generator settings not valid")) }
+
+        val outputDir = FileKit.openDirectoryPicker(
+            directory = null,
+            dialogSettings = FileKitDialogSettings(
+                title = "Select Output Directory",
+            ),
+        )?.path?.let(::Path)?.also {
+            appFileSystem.createDirectories(path = it)
+        } ?: return uiState.update {
+            it.copy(generateStatus = GenerateStatus.Error("No output directory selected"))
+        }
+
+        val generator = generatorSettings.toGenerator()
+        val nofDigits = (inputData.size + 1).toString().length.coerceAtLeast(2)
+        inputData.forEachIndexed { index, text ->
+            val prefix = (index + 1).toString().padStart(nofDigits, '0')
+            val filePath = Path(base = outputDir, "${prefix}_${text.toPathSafe()}.nc")
+            val gcode = generator.generateGCode(text)
+
+            appFileSystem.sink(path = filePath, append = false).use { sink ->
+                val buffer = Buffer().apply {
+                    writeString(gcode.content)
+                }
+                sink.write(buffer, buffer.size)
+            }
+        }
+        uiState.update {
+            it.copy(generateStatus = GenerateStatus.Success("Generated ${inputData.size} G-Code file(s) in:\n$outputDir"))
         }
     }
 }
@@ -62,27 +96,27 @@ data class AppUiState(
     val fontStyles: Set<FontStyle> = emptySet(),
     val hAlign: Align = Align.CENTER,
     val vAlign: Align = Align.CENTER,
-    val successMessage: String? = null,
+    val generateStatus: GenerateStatus = GenerateStatus.NotStarted,
     val plotThemeIsDark: Boolean = false,
 ) {
+
     val fontSizeValue = fontSize.toFloatOrNull()?.takeIf { it > 0f }
     val laserPowerValue = laserPower.toUIntOrNull()?.takeIf { it in 0u..1000u }
     val laserSpeedValue = laserSpeed.toUIntOrNull()?.takeIf { it > 0u }
     val inputDataValue = inputData.split('\n').map { it.trim() }.filter { it.isNotBlank() }
         .takeIf { it.isNotEmpty() }
-    val generateGCodeData: GenerateGCodeData? = run {
-        GenerateGCodeData(
-            fontName = fontName ?: return@run null,
-            fontSize = fontSizeValue ?: return@run null,
-            fontStyles = fontStyles,
-            inputData = inputDataValue ?: return@run null,
-            laserPower = laserPowerValue ?: return@run null,
-            laserSpeed = laserSpeedValue ?: return@run null,
-            hAlign = hAlign,
-            vAlign = vAlign,
-        )
-    }
-    val canGenerate = generateGCodeData != null
+    val generatorSettings = generateGCodeData()
+    val canGenerate = generatorSettings != null && inputDataValue != null
+
+    fun generateGCodeData(): GeneratorSettings? = GeneratorSettings(
+        fontName = fontName ?: return null,
+        fontSize = fontSizeValue ?: return null,
+        fontStyles = fontStyles,
+        laserPower = laserPowerValue ?: return null,
+        laserSpeed = laserSpeedValue ?: return null,
+        hAlign = hAlign,
+        vAlign = vAlign,
+    )
 }
 
 sealed interface AppIntent {
@@ -94,6 +128,6 @@ sealed interface AppIntent {
     data class FontStyleToggled(val value: FontStyle) : AppIntent
     data class HAlignChanged(val value: Align) : AppIntent
     data class VAlignChanged(val value: Align) : AppIntent
-    data class GenerateClicked(val outputDir: File) : AppIntent
-    data object SuccessMessageDismissed : AppIntent
+    data object GenerateClicked : AppIntent
+    data object GeneratorStatusMessageDismissed : AppIntent
 }
