@@ -1,5 +1,7 @@
 package de.quati.grbl_laser
 
+import androidx.compose.ui.graphics.Path
+
 
 sealed interface GenerateStatus {
     object NotStarted : GenerateStatus
@@ -14,11 +16,34 @@ data class Point2D(val x: Double, val y: Double) {
 
 sealed interface ShapeLinear {
     val bounds: Rectangle2D
+    fun bounds(borderRelative: Double): Rectangle2D {
+        val b = bounds
+        val dx = bounds.w * borderRelative
+        val dy = bounds.h * borderRelative
+        return Rectangle2D(
+            x0 = b.x0 - dx,
+            y0 = b.y0 - dy,
+            w = b.w + 2 * dx,
+            h = b.h + 2 * dy,
+        )
+    }
+
     fun segmentIterator(): Iterator<PathSegmentLinear>
 
-    fun toStatic() = when(this) {
+    fun toStatic() = when (this) {
         is Static -> this
         is Stream -> Static(bounds = bounds, data = data.toList())
+    }
+
+    fun toComposePath(mapper: CanvasCoordMapper): Path {
+        val path = Path()
+        segmentIterator().forEach {
+            when (it) {
+                is PathSegmentLinear.MoveTo -> path.moveTo(mapper.x(it.p1.x), mapper.y(it.p1.y))
+                is PathSegmentLinear.LineTo -> path.lineTo(mapper.x(it.p1.x), mapper.y(it.p1.y))
+            }
+        }
+        return path
     }
 
     class Stream(
@@ -38,11 +63,14 @@ sealed interface ShapeLinear {
 
 
 data class Rectangle2D(
-    val x: Double,
-    val y: Double,
-    val width: Double,
-    val height: Double
-)
+    val x0: Double,
+    val y0: Double,
+    val w: Double,
+    val h: Double
+) {
+    val x1 get() = (x0 + w)
+    val y1 get() = (y0 + h)
+}
 
 sealed interface PathSegmentLinear {
     val p1: Point2D

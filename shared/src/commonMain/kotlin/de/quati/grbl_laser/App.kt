@@ -227,7 +227,13 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                 }
             }
 
-            //Spacer(Modifier.padding(8.dp))
+            Spacer(Modifier.padding(8.dp))
+            ShapeCanvas(
+                shape = uiState.inputDataValue?.firstOrNull()?.let { line ->
+                    uiState.generator?.generateShape(line)
+                },
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
         }
     }
 }

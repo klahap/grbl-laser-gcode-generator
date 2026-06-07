@@ -71,8 +71,8 @@ fun Shape.toShapeLinear(tolerance: Double): ShapeLinear.Stream {
 }
 
 fun java.awt.geom.Rectangle2D.toQuati() = Rectangle2D(
-    x = x,
-    y = y,
-    width = width,
-    height = height
+    x0 = x,
+    y0 = y,
+    w = width,
+    h = height
 )

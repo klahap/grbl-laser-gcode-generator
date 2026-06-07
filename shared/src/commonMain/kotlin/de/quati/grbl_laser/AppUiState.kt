@@ -51,9 +51,9 @@ class AppViewModel : ViewModel() {
 
     private suspend fun generate() {
         uiState.update { it.copy(generateStatus = GenerateStatus.InProgress) }
-        val generatorSettings = uiState.value.generatorSettings
+        val generator = uiState.value.generator
         val inputData = uiState.value.inputDataValue
-        if (inputData == null || generatorSettings == null)
+        if (inputData == null || generator == null)
             return uiState.update { it.copy(generateStatus = GenerateStatus.Error("Input data or generator settings not valid")) }
 
         val outputDir = FileKit.openDirectoryPicker(
@@ -67,7 +67,6 @@ class AppViewModel : ViewModel() {
             it.copy(generateStatus = GenerateStatus.Error("No output directory selected"))
         }
 
-        val generator = generatorSettings.toGenerator()
         val nofDigits = (inputData.size + 1).toString().length.coerceAtLeast(2)
         inputData.forEachIndexed { index, text ->
             val prefix = (index + 1).toString().padStart(nofDigits, '0')
@@ -105,8 +104,8 @@ data class AppUiState(
     val laserSpeedValue = laserSpeed.toUIntOrNull()?.takeIf { it > 0u }
     val inputDataValue = inputData.split('\n').map { it.trim() }.filter { it.isNotBlank() }
         .takeIf { it.isNotEmpty() }
-    val generatorSettings = generateGCodeData()
-    val canGenerate = generatorSettings != null && inputDataValue != null
+    val generator = generateGCodeData()?.toGenerator()
+    val canGenerate = generator != null && inputDataValue != null
 
     fun generateGCodeData(): GeneratorSettings? = GeneratorSettings(
         fontName = fontName ?: return null,
