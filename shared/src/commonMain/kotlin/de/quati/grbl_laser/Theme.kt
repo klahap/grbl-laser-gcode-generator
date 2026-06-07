@@ -5,16 +5,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import org.jetbrains.letsPlot.intern.Feature
-import org.jetbrains.letsPlot.themes.flavorHighContrastDark
-import org.jetbrains.letsPlot.themes.themeBW
-import org.jetbrains.letsPlot.themes.themeClassic
-import org.jetbrains.letsPlot.themes.themeGrey
-import org.jetbrains.letsPlot.themes.themeLight
-import org.jetbrains.letsPlot.themes.themeMinimal
-import org.jetbrains.letsPlot.themes.themeMinimal2
-import org.jetbrains.letsPlot.themes.themeNone
-import org.jetbrains.letsPlot.themes.themeVoid
 
 
 internal val AppColorScheme = lightColorScheme(
@@ -50,19 +40,3 @@ fun appTextFieldColors() = OutlinedTextFieldDefaults.colors(
     errorContainerColor = MaterialTheme.colorScheme.surface,
     disabledContainerColor = MaterialTheme.colorScheme.surface,
 )
-
-enum class LetsPlotTheme(private val themeGen: () -> Feature) {
-    MINIMAL_2(::themeMinimal2),
-    BW(::themeBW),
-    GREY(::themeGrey),
-    CLASSIC(::themeClassic),
-    LIGHT(::themeLight),
-    MINIMAL(::themeMinimal),
-    VOID(::themeVoid),
-    NONE(::themeNone);
-
-    fun generate(isDark: Boolean) = if (isDark)
-        themeGen() + flavorHighContrastDark()
-    else
-        themeGen()
-}

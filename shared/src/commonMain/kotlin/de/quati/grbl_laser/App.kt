@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle as ComposeFontStyle
-import java.awt.FileDialog
-import java.awt.Frame
+import java.awt.FileDialog // TODO
+import java.awt.Frame // TODO
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,13 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import org.jetbrains.letsPlot.Figure
-import org.jetbrains.letsPlot.compose.PlotPanel
-import org.jetbrains.letsPlot.intern.Plot
-import org.jetbrains.letsPlot.letsPlot
-import org.jetbrains.letsPlot.geom.geomDensity
-import java.io.File
-import kotlin.random.Random
+import java.io.File // TODO
 
 
 @Composable
@@ -43,8 +37,6 @@ import kotlin.random.Random
 @OptIn(ExperimentalMaterial3Api::class)
 fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
     val uiState by appViewModel.uiState.collectAsState()
-    val baseFigure = remember { createFigure() } // TODO remember ok?
-    val finalFigure = (baseFigure as Plot) + uiState.plotTheme.generate(isDark = uiState.plotThemeIsDark)
 
     MaterialTheme(colorScheme = AppColorScheme) {
         val textFieldColors = appTextFieldColors()
@@ -222,25 +214,10 @@ fun App(appViewModel: AppViewModel = viewModel { AppViewModel() }) {
                     )
                 }
             }
-            Spacer(Modifier.padding(8.dp))
-            PlotPanel(
-                figure = finalFigure,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-            ) { computationMessages ->
-                computationMessages.forEach { println("[DEMO APP MESSAGE] $it") }
-            }
+
+            //Spacer(Modifier.padding(8.dp))
         }
     }
-}
-
-fun createFigure(): Figure {
-    val rand = Random.Default
-    val n = 200
-    val xs = List(n) { rand.nextDouble() * 6 - 3 } // Normal-like distribution
-    val data = mapOf<String, Any>(
-        "x" to xs
-    )
-    return letsPlot(data) + geomDensity(alpha = 0.2) { x = "x" }
 }
 
 @Composable

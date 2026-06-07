@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File
+import java.io.File // TODO
 import kotlin.collections.plus
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
@@ -63,7 +63,6 @@ data class AppUiState(
     val hAlign: Align = Align.CENTER,
     val vAlign: Align = Align.CENTER,
     val successMessage: String? = null,
-    val plotTheme: LetsPlotTheme = LetsPlotTheme.MINIMAL_2,
     val plotThemeIsDark: Boolean = false,
 ) {
     val fontSizeValue = fontSize.toFloatOrNull()?.takeIf { it > 0f }

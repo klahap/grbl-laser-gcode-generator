@@ -14,22 +14,23 @@ fun Shape.toGcode(
     val digits = ceil(-log10(tolerance)).roundToInt().coerceAtLeast(0)
     val ff = "%.${digits}f"
     var isStart = true
-    appendLine("M5")
     asSegmentSequence().toLines(tolerance = tolerance).forEach {
         when (it) {
             is PathSegment.MoveTo -> {
                 isStart = true
-                "G0X${ff}Y${ff}".format(it.p1.x, -it.p1.y)
+                appendLine("M5")
+                appendLine("G0X${ff}Y${ff}".format(it.p1.x, -it.p1.y))
             }
 
             is PathSegment.LineTo -> {
                 val postfix = if (isStart) {
                     isStart = false
-                    "F${speed}S$power"
+                    appendLine("M3S$power")
+                    "F${speed}"
                 } else ""
-                "G1X${ff}Y${ff}$postfix".format(it.p1.x, -it.p1.y)
+                appendLine("G1X${ff}Y${ff}$postfix".format(it.p1.x, -it.p1.y))
             }
-        }.let(::appendLine)
+        }
     }
     appendLine("M5")
 }.let(::GCode)
