@@ -1,6 +1,7 @@
 package de.quati.grbl_laser
 
 import androidx.compose.ui.graphics.Path
+import kotlin.math.min
 
 
 sealed interface GenerateStatus {
@@ -70,6 +71,8 @@ data class Rectangle2D(
 ) {
     val x1 get() = (x0 + w)
     val y1 get() = (y0 + h)
+
+    fun isEmpty() = min(w, h) < 1e-5
 }
 
 sealed interface PathSegmentLinear {
